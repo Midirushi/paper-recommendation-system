@@ -211,7 +211,7 @@ paper-recommendation-system/
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/your-repo/paper-recommendation-system.git
+git clone https://github.com/Midirushi/paper-recommendation-system.git
 cd paper-recommendation-system
 
 # 2. 配置API密钥
@@ -631,13 +631,11 @@ main         # 生产环境
 ## 📞 联系方式
 
 ### 技术支持
-- **GitHub Issues**: https://github.com/your-repo/issues
-- **Email**: support@example.com
-- **Discord**: https://discord.gg/your-server
+- **GitHub Issues**: https://github.com/Midirushi/paper-recommendation-system/issues
+- **Email**: leoinman@163.com
 
 ### 商务合作
-- **Email**: business@example.com
-- **微信**: YourWeChatID
+- **Email**: leoinman@163.com
 
 ---
 
