@@ -1,0 +1,136 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database with pgvector
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: paper_db
+    environment:
+      POSTGRES_DB: papers_db
+      POSTGRES_USER: paperuser
+      POSTGRES_PASSWORD: paperpass123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and Celery
+  redis:
+    image: redis:7-alpine
+    container_name: paper_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: paper_backend
+    environment:
+      DATABASE_URL: postgresql://paperuser:paperpass123@postgres:5432/papers_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      CNKI_API_KEY: ${CNKI_API_KEY}
+      SCHOLAR_API_KEY: ${SCHOLAR_API_KEY}
+    volumes:
+      - ../backend:/app
+      - backend_logs:/app/logs
+      - paper_pdfs:/app/data/pdfs
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Celery Worker for background tasks
+  celery_worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: paper_celery_worker
+    environment:
+      DATABASE_URL: postgresql://paperuser:paperpass123@postgres:5432/papers_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    volumes:
+      - ../backend:/app
+      - paper_pdfs:/app/data/pdfs
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A tasks.crawler_tasks worker --loglevel=info
+
+  # Celery Beat for scheduled tasks
+  celery_beat:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: paper_celery_beat
+    environment:
+      DATABASE_URL: postgresql://paperuser:paperpass123@postgres:5432/papers_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      - ../backend:/app
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A tasks.crawler_tasks beat --loglevel=info
+
+  # Flower for Celery monitoring
+  flower:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: paper_flower
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    command: celery -A tasks.crawler_tasks flower --port=5555
+
+  # Frontend
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: paper_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://localhost:8000/api/v1
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_logs:
+  paper_pdfs:
