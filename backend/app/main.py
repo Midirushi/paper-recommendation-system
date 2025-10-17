@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from .config import settings
 from .database import init_db
-from .api import search, trends
+from .api import search, trends, recommendations, admin
 
 # Create FastAPI app
 app = FastAPI(
@@ -25,6 +25,8 @@ app.add_middleware(
 # Include routers
 app.include_router(search.router)
 app.include_router(trends.router)
+app.include_router(recommendations.router)
+app.include_router(admin.router)
 
 @app.on_event("startup")
 async def startup_event():

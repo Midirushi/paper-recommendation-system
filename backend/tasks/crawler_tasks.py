@@ -92,31 +92,31 @@ def crawl_all_sources():
     """Crawl papers from all configured sources"""
     db = SessionLocal()
     try:
-        results = {}
-        
-        # CNKI
-        cnki_papers = cnki_crawler.fetch_latest_papers(days=1)
-        results['cnki'] = len(cnki_papers)
-        
-        # TODO: Add other sources (WoS, Scholar, etc.)
-        
-        # Store papers
-        for paper_data in cnki_papers:
-            existing = db.query(Paper).filter(Paper.id == paper_data['id']).first()
-            if not existing:
-                embedding = llm_service.generate_embedding(
-                    f"{paper_data['title']} {paper_data.get('abstract', '')}"
-                )
-                paper_data['embedding'] = embedding
-                db.add(Paper(**paper_data))
-        
-        db.commit()
-        return results
-    
+        from app.services.crawler_service import crawler_service
+        import asyncio
+
+        # Use crawler service to crawl all sources
+        keywords = ["knowledge graph", "machine learning", "artificial intelligence"]
+
+        # Run async crawl
+        loop = asyncio.get_event_loop()
+        results = loop.run_until_complete(
+            crawler_service.crawl_all_sources(keywords, db, days=1)
+        )
+
+        return {
+            "status": "success",
+            "cnki_papers": results.get("cnki", 0),
+            "scholar_papers": results.get("scholar", 0),
+            "total_new": results.get("total_new", 0),
+            "total_updated": results.get("total_updated", 0)
+        }
+
     except Exception as e:
         db.rollback()
+        print(f"Error in crawl_all_sources: {e}")
         return {"status": "error", "message": str(e)}
-    
+
     finally:
         db.close()
 
@@ -192,16 +192,46 @@ def generate_user_recommendations(user_id: str):
     """Generate personalized paper recommendations for a user"""
     db = SessionLocal()
     try:
-        # TODO: Implement personalized recommendation logic
-        # 1. Get user profile and interests
-        # 2. Fetch relevant papers
-        # 3. Rank by relevance
-        # 4. Send notification
-        
-        return {"status": "success", "user_id": user_id}
-    
+        from app.services.recommendation import recommendation_service
+
+        # Generate personalized recommendations
+        recommendations = recommendation_service.generate_personalized_recommendations(
+            user_id=user_id,
+            db=db,
+            limit=10
+        )
+
+        if not recommendations:
+            return {
+                "status": "no_recommendations",
+                "user_id": user_id,
+                "message": "No recommendations available"
+            }
+
+        # TODO: Send email notification with recommendations
+        # For now, just log and store the recommendations
+        print(f"Generated {len(recommendations)} recommendations for user {user_id}")
+
+        # Store recommendations in cache for quick access
+        from app.database import redis_client
+        import json
+        cache_key = f"user_recommendations:{user_id}"
+        redis_client.setex(
+            cache_key,
+            86400,  # 24 hours
+            json.dumps(recommendations, ensure_ascii=False)
+        )
+
+        return {
+            "status": "success",
+            "user_id": user_id,
+            "recommendation_count": len(recommendations),
+            "top_paper": recommendations[0].get("title") if recommendations else None
+        }
+
     except Exception as e:
-        return {"status": "error", "message": str(e)}
-    
+        print(f"Error generating recommendations for user {user_id}: {e}")
+        return {"status": "error", "message": str(e), "user_id": user_id}
+
     finally:
         db.close()

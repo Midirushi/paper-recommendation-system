@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Dict, Any
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 from ..database import get_db_dependency
@@ -40,7 +40,7 @@ async def get_latest_trends(db: Session = Depends(get_db_dependency)):
         summary=latest_trend.trend_summary,
         topics=latest_trend.hot_papers or [],
         keywords=latest_trend.keywords or [],
-        analysis_date=latest_trend.analysis_date.isoformat(),
+        analysis_date=latest_trend.analysis_date.isoformat() if latest_trend.analysis_date else "",
         paper_count=latest_trend.paper_count,
         avg_citation=latest_trend.avg_citation or 0.0
     )
@@ -55,15 +55,15 @@ async def get_trend_history(
         ResearchTrend.analysis_date.desc()
     ).limit(limit).all()
     
+    # Return a list of past trend analyses (summary information)
     return [{
-        "id": p.id,
-        "title": p.title,
-        "authors": p.authors,
-        "journal": p.journal,
-        "publish_date": p.publish_date.isoformat() if p.publish_date else None,
-        "citation_count": p.citation_count,
-        "keywords": p.keywords
-    } for p in hot_papers]
+        "id": t.id,
+        "topic": t.topic,
+        "summary": (t.trend_summary[:200] + "...") if (t.trend_summary and len(t.trend_summary) > 200) else (t.trend_summary or ""),
+        "analysis_date": t.analysis_date.isoformat() if t.analysis_date else None,
+        "paper_count": t.paper_count,
+        "avg_citation": t.avg_citation or 0.0
+    } for t in trends]
 
 @router.get("/keywords")
 async def get_trending_keywords(
@@ -79,7 +79,7 @@ async def get_trending_keywords(
     ).all()
     
     # Count keyword frequency
-    keyword_counts = {}
+    keyword_counts: Dict[str, int] = {}
     for paper in papers:
         if paper.keywords:
             for keyword in paper.keywords:
@@ -92,12 +92,6 @@ async def get_trending_keywords(
         "keyword": kw,
         "count": count
     } for kw, count in trending]
-"id": t.id,
-        "topic": t.topic,
-        "summary": t.trend_summary[:200] + "..." if len(t.trend_summary) > 200 else t.trend_summary,
-        "analysis_date": t.analysis_date.isoformat(),
-        "paper_count": t.paper_count
-    } for t in trends]
 
 @router.get("/hot-papers")
 async def get_hot_papers(
@@ -114,4 +108,14 @@ async def get_hot_papers(
         Paper.citation_count.desc()
     ).limit(limit).all()
     
+    # Return simplified paper info for hot papers
     return [{
+        "id": p.id,
+        "title": p.title,
+        "authors": p.authors,
+        "journal": p.journal,
+        "publish_date": p.publish_date.isoformat() if p.publish_date else None,
+        "citation_count": p.citation_count,
+        "abstract": p.abstract,
+        "keywords": p.keywords
+    } for p in hot_papers]
