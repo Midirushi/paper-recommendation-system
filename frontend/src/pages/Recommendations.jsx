@@ -84,8 +84,8 @@ const Recommendations = () => {
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50/30 to-blue-50/30">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-8 py-8">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
                 <div className="p-2 bg-gradient-to-br from-pink-500 to-purple-600 rounded-xl">
@@ -102,7 +102,7 @@ const Recommendations = () => {
               onClick={handleGenerateRecommendations}
               disabled={generating}
               className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg
-                       hover:bg-purple-700 disabled:bg-gray-400 transition-colors"
+                       hover:bg-purple-700 disabled:bg-gray-400 transition-colors whitespace-nowrap"
             >
               {generating ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -115,7 +115,7 @@ const Recommendations = () => {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-8 py-8">
         {/* Tabs */}
         <div className="flex gap-4 mb-8">
           <TabButton
